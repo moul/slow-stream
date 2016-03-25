@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/crypto/ssh/terminal"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/moul/slow-stream"
@@ -25,6 +27,10 @@ func main() {
 		cli.BoolFlag{
 			Name:  "verbose, V",
 			Usage: "Enable verbose mode",
+		},
+		cli.BoolFlag{
+			Name:  "raw, r",
+			Usage: "Enable raw mode",
 		},
 		cli.BoolFlag{
 			Name:  "stdout-passthrough",
@@ -50,6 +56,15 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) {
+		if c.Bool("raw") {
+			oldState, err := terminal.MakeRaw(0)
+			if err != nil {
+				logrus.Fatal(err)
+			}
+
+			defer terminal.Restore(0, oldState)
+		}
+
 		buffSize := c.Int("buff-size")
 		maxWriteInterval := time.Duration(c.Int("max-write-interval")) * time.Millisecond
 
@@ -71,6 +86,7 @@ func main() {
 			}
 
 		} else {
+
 			logrus.Debugf("exec mode: %v (buf=%d, dur=%v)", c.Args(), buffSize, maxWriteInterval)
 			wg := sync.WaitGroup{}
 
