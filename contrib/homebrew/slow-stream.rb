@@ -3,8 +3,8 @@ require "language/go"
 class SlowStream < Formula
   desc "slow-stream: pipe to throttle streams"
   homepage "https://github.com/moul/slow-stream"
-  url "https://github.com/moul/slow-stream/archive/v1.0.0.tar.gz"
-  sha256 "ff0313024168eaaadf5231889eb0145467db9ebf1a78d46ad678a73f7098d22c"
+  url "https://github.com/moul/slow-stream/archive/v1.1.0.tar.gz"
+  sha256 "f32c4383784fce4cb1fec540a1a35c037c9127569fb9da9779464284cfbdc99f"
 
   head "https://github.com/moul/slow-stream.git"
 
