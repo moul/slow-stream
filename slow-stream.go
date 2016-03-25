@@ -6,14 +6,14 @@ import (
 )
 
 type SlowStreamOpts struct {
-	Reader       io.Reader
-	Writer       io.Writer
-	MaxWriteSize int
-	WriteSleep   time.Duration
+	Reader           io.Reader
+	Writer           io.Writer
+	BuffSize         int
+	MaxWriteInterval time.Duration
 }
 
 func SlowStream(opts SlowStreamOpts) <-chan error {
-	buff := make([]byte, opts.MaxWriteSize)
+	buff := make([]byte, opts.BuffSize)
 	c := make(chan error, 1)
 
 	go func() {
@@ -33,7 +33,7 @@ func SlowStream(opts SlowStreamOpts) <-chan error {
 				return
 			}
 			if wr > 0 {
-				time.Sleep(opts.WriteSleep)
+				time.Sleep(opts.MaxWriteInterval)
 			}
 		}
 	}()

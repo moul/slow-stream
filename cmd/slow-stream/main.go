@@ -26,6 +26,16 @@ func main() {
 			Name:  "verbose, V",
 			Usage: "Enable verbose mode",
 		},
+		cli.IntFlag{
+			Name:  "max-write-interval, i",
+			Usage: "Max write interval (in millisecond)",
+			Value: 100,
+		},
+		cli.IntFlag{
+			Name:  "buff-size, b",
+			Usage: "Buffer size",
+			Value: 1024,
+		},
 	}
 
 	app.Before = func(c *cli.Context) error {
@@ -36,14 +46,17 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) {
+		buffSize := c.Int("buff-size")
+		maxWriteInterval := time.Duration(c.Int("max-write-interval")) * time.Millisecond
+
 		if len(c.Args()) == 0 {
-			logrus.Debugf("pipe mode")
+			logrus.Debugf("pipe mode (buf=%d, dur=%v)", buffSize, maxWriteInterval)
 
 			pipe := slowstream.SlowStream(slowstream.SlowStreamOpts{
-				Reader:       os.Stdin,
-				Writer:       os.Stdout,
-				MaxWriteSize: 1,
-				WriteSleep:   100 * time.Millisecond,
+				Reader:           os.Stdin,
+				Writer:           os.Stdout,
+				BuffSize:         buffSize,
+				MaxWriteInterval: maxWriteInterval,
 			})
 			var ret error
 			select {
@@ -54,7 +67,7 @@ func main() {
 			}
 
 		} else {
-			logrus.Debugf("exec mode: %v", c.Args())
+			logrus.Debugf("exec mode: %v (buf=%d, dur=%v)", c.Args(), buffSize, maxWriteInterval)
 			wg := sync.WaitGroup{}
 
 			wg.Add(2)
@@ -67,16 +80,16 @@ func main() {
 			defer psIn.Close()
 
 			psToTerm := slowstream.SlowStream(slowstream.SlowStreamOpts{
-				Reader:       psOut,
-				Writer:       os.Stdout,
-				MaxWriteSize: 1,
-				WriteSleep:   34 * time.Millisecond,
+				Reader:           psOut,
+				Writer:           os.Stdout,
+				BuffSize:         buffSize,
+				MaxWriteInterval: maxWriteInterval,
 			})
 			termToPs := slowstream.SlowStream(slowstream.SlowStreamOpts{
-				Reader:       os.Stdin,
-				Writer:       psIn,
-				MaxWriteSize: 1,
-				WriteSleep:   34 * time.Millisecond,
+				Reader:           os.Stdin,
+				Writer:           psIn,
+				BuffSize:         buffSize,
+				MaxWriteInterval: maxWriteInterval,
 			})
 			spawn.Stderr = os.Stderr
 
