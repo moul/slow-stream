@@ -1,5 +1,5 @@
-all: speedradar
+all: slow-stream
 
 
-speedradar: speedradar.go
+slow-stream: slow-stream.go
 	go build -o $@ $<

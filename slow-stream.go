@@ -16,9 +16,9 @@ func main() {
 	app := cli.NewApp()
 	app.Name = path.Base(os.Args[0])
 	app.Author = "Manfred Touron"
-	app.Email = "https://github.com/moul/speedradar"
+	app.Email = "https://github.com/moul/slow-stream"
 	// app.Version
-	app.Usage = "Speed Radar"
+	app.Usage = "Slow Stream"
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -38,7 +38,7 @@ func main() {
 		if len(c.Args()) == 0 {
 			logrus.Debugf("pipe mode")
 
-			pipe := SpeedRadar(SpeedRadarOpts{
+			pipe := SlowStream(SlowStreamOpts{
 				Reader:       os.Stdin,
 				Writer:       os.Stdout,
 				MaxWriteSize: 1,
@@ -66,13 +66,13 @@ func main() {
 			defer psOut.Close()
 			defer psIn.Close()
 
-			psToTerm := SpeedRadar(SpeedRadarOpts{
+			psToTerm := SlowStream(SlowStreamOpts{
 				Reader:       psOut,
 				Writer:       os.Stdout,
 				MaxWriteSize: 1,
 				WriteSleep:   34 * time.Millisecond,
 			})
-			termToPs := SpeedRadar(SpeedRadarOpts{
+			termToPs := SlowStream(SlowStreamOpts{
 				Reader:       os.Stdin,
 				Writer:       psIn,
 				MaxWriteSize: 1,
@@ -104,14 +104,14 @@ func main() {
 	app.Run(os.Args)
 }
 
-type SpeedRadarOpts struct {
+type SlowStreamOpts struct {
 	Reader       io.Reader
 	Writer       io.Writer
 	MaxWriteSize int
 	WriteSleep   time.Duration
 }
 
-func SpeedRadar(opts SpeedRadarOpts) <-chan error {
+func SlowStream(opts SlowStreamOpts) <-chan error {
 	buff := make([]byte, 1024)
 	c := make(chan error, 1)
 
