@@ -1,0 +1,24 @@
+{
+	"ImportPath": "github.com/moul/slow-stream",
+	"GoVersion": "go1.5",
+	"Packages": [
+		"github.com/moul/slow-stream",
+		"github.com/moul/slow-stream/cmd/slow-stream"
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.7-53-g446d1c1",
+			"Rev": "446d1c146faa8ed3f4218f056fcd165f6bcfda81"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/cli",
+			"Comment": "1.2.0-187-gc31a797",
+			"Rev": "c31a7975863e7810c92e2e288a9ab074f9a88f29"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "833a04a10549a95dc34458c195cbad61bbb6cb4d"
+		}
+	]
+}
