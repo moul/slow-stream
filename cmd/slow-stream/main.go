@@ -26,6 +26,10 @@ func main() {
 			Name:  "verbose, V",
 			Usage: "Enable verbose mode",
 		},
+		cli.BoolFlag{
+			Name:  "stdout-passthrough",
+			Usage: "Do not slow stdout",
+		},
 		cli.IntFlag{
 			Name:  "max-write-interval, i",
 			Usage: "Max write interval (in millisecond)",
@@ -79,12 +83,20 @@ func main() {
 			defer psOut.Close()
 			defer psIn.Close()
 
-			psToTerm := slowstream.SlowStream(slowstream.SlowStreamOpts{
+			// ps to term
+			opts := slowstream.SlowStreamOpts{
 				Reader:           psOut,
 				Writer:           os.Stdout,
 				BuffSize:         buffSize,
 				MaxWriteInterval: maxWriteInterval,
-			})
+			}
+			if c.Bool("stdout-passthrough") {
+				opts.BuffSize = 1024
+				opts.MaxWriteInterval = 0
+			}
+			psToTerm := slowstream.SlowStream(opts)
+
+			// term to ps
 			termToPs := slowstream.SlowStream(slowstream.SlowStreamOpts{
 				Reader:           os.Stdin,
 				Writer:           psIn,
