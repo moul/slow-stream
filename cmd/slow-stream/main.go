@@ -18,7 +18,7 @@ func main() {
 	app.Name = path.Base(os.Args[0])
 	app.Author = "Manfred Touron"
 	app.Email = "https://github.com/moul/slow-stream"
-	// app.Version
+	app.Version = slowstream.VERSION
 	app.Usage = "Slow Stream"
 
 	app.Flags = []cli.Flag{

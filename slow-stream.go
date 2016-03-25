@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var VERSION = "0.0.0"
+
 type SlowStreamOpts struct {
 	Reader           io.Reader
 	Writer           io.Writer
