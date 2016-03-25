@@ -2,84 +2,76 @@ package main
 
 import (
 	"io"
-	"net"
 	"os"
-	"os/signal"
-	"sync"
-	"syscall"
+	"path"
 	"time"
 
-	"golang.org/x/net/context"
+	"github.com/Sirupsen/logrus"
+	"github.com/codegangsta/cli"
 )
 
 func main() {
-	conn, err := net.Dial("tcp", "127.0.0.1:3000")
-	if err != nil {
-		panic(err)
+	app := cli.NewApp()
+	app.Name = path.Base(os.Args[0])
+	app.Author = "Manfred Touron"
+	app.Email = "https://github.com/moul/speedradar"
+	// app.Version
+	app.Usage = "Speed Radar"
+
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "verbose, V",
+			Usage: "Enable verbose mode",
+		},
 	}
 
-	signal.Ignore(syscall.SIGHUP)
-
-	wg := sync.WaitGroup{}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	ctx = context.WithValue(ctx, "sync", &wg)
-
-	wg.Add(2)
-
-	netToTerm := readAndWrite(readWriteOpts{
-		Context:      ctx,
-		Reader:       conn,
-		Writer:       os.Stdout,
-		MaxWriteSize: 1,
-		WriteSleep:   34 * time.Millisecond,
-	})
-	termToNet := readAndWrite(readWriteOpts{
-		Context:      ctx,
-		Reader:       os.Stdin,
-		Writer:       conn,
-		MaxWriteSize: 1,
-		WriteSleep:   34 * time.Millisecond,
-	})
-
-	var ret error
-	select {
-	case ret = <-netToTerm:
-	case ret = <-termToNet:
+	app.Before = func(c *cli.Context) error {
+		if c.Bool("verbose") {
+			logrus.SetLevel(logrus.DebugLevel)
+		}
+		return nil
 	}
 
-	if ret == io.EOF {
-		ret = nil
+	app.Action = func(c *cli.Context) {
+		if len(c.Args()) == 0 {
+			logrus.Debugf("pipe mode")
+
+			pipe := SpeedRadar(SpeedRadarOpts{
+				Reader:       os.Stdin,
+				Writer:       os.Stdout,
+				MaxWriteSize: 1,
+				WriteSleep:   100 * time.Millisecond,
+			})
+			var ret error
+			select {
+			case ret = <-pipe:
+			}
+			if ret != nil {
+				logrus.Error(ret)
+			}
+
+		} else {
+			logrus.Debugf("exec mode: %v", c.Args())
+		}
 	}
 
-	conn.Close()
-	cancel()
-	wg.Wait()
-	if ret != nil {
-		panic(ret)
-	}
+	app.Run(os.Args)
 }
 
-type readWriteOpts struct {
-	Context      context.Context
+type SpeedRadarOpts struct {
 	Reader       io.Reader
 	Writer       io.Writer
 	MaxWriteSize int
 	WriteSleep   time.Duration
 }
 
-func readAndWrite(opts readWriteOpts) <-chan error {
+func SpeedRadar(opts SpeedRadarOpts) <-chan error {
 	buff := make([]byte, 1024)
 	c := make(chan error, 1)
 
 	go func() {
-		defer opts.Context.Value("sync").(*sync.WaitGroup).Done()
-
 		for {
 			select {
-			case <-opts.Context.Done():
-				c <- nil
-				return
 			default:
 				nr, err := opts.Reader.Read(buff)
 				if err != nil {
