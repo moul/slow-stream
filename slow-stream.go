@@ -13,7 +13,7 @@ type SlowStreamOpts struct {
 }
 
 func SlowStream(opts SlowStreamOpts) <-chan error {
-	buff := make([]byte, 1024)
+	buff := make([]byte, opts.MaxWriteSize)
 	c := make(chan error, 1)
 
 	go func() {
@@ -23,23 +23,17 @@ func SlowStream(opts SlowStreamOpts) <-chan error {
 				c <- err
 				return
 			}
-			if nr > 0 {
-				var end int
-				for start := 0; start < nr; start = end {
-					end = start + opts.MaxWriteSize
-					if end > nr {
-						end = nr
-					}
-					_, err := opts.Writer.Write(buff[start:end])
-					if err != nil {
-						c <- err
-						return
-					}
-					if end == nr {
-						break
-					}
-					time.Sleep(opts.WriteSleep)
-				}
+			if nr == 0 {
+				continue
+			}
+
+			wr, err := opts.Writer.Write(buff[:nr])
+			if err != nil {
+				c <- err
+				return
+			}
+			if wr > 0 {
+				time.Sleep(opts.WriteSleep)
 			}
 		}
 	}()

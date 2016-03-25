@@ -55,7 +55,6 @@ func main() {
 
 		} else {
 			logrus.Debugf("exec mode: %v", c.Args())
-			// signal.Ignore(syscall.SIGHUP)
 			wg := sync.WaitGroup{}
 
 			wg.Add(2)
