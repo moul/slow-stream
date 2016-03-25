@@ -18,30 +18,27 @@ func SlowStream(opts SlowStreamOpts) <-chan error {
 
 	go func() {
 		for {
-			select {
-			default:
-				nr, err := opts.Reader.Read(buff)
-				if err != nil {
-					c <- err
-					return
-				}
-				if nr > 0 {
-					var end int
-					for start := 0; start < nr; start = end {
-						end = start + opts.MaxWriteSize
-						if end > nr {
-							end = nr
-						}
-						_, err := opts.Writer.Write(buff[start:end])
-						if err != nil {
-							c <- err
-							return
-						}
-						if end == nr {
-							break
-						}
-						time.Sleep(opts.WriteSleep)
+			nr, err := opts.Reader.Read(buff)
+			if err != nil {
+				c <- err
+				return
+			}
+			if nr > 0 {
+				var end int
+				for start := 0; start < nr; start = end {
+					end = start + opts.MaxWriteSize
+					if end > nr {
+						end = nr
 					}
+					_, err := opts.Writer.Write(buff[start:end])
+					if err != nil {
+						c <- err
+						return
+					}
+					if end == nr {
+						break
+					}
+					time.Sleep(opts.WriteSleep)
 				}
 			}
 		}
