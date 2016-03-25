@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"golang.org/x/net/context"
 )
@@ -21,65 +21,87 @@ func main() {
 	signal.Ignore(syscall.SIGHUP)
 
 	wg := sync.WaitGroup{}
-	result := exportReadWrite{}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, "sync", &wg)
 
 	wg.Add(2)
 
-	netToTerm := readAndWrite(ctx, conn, os.Stdout)
-	termToNet := readAndWrite(ctx, os.Stdin, conn)
+	netToTerm := readAndWrite(readWriteOpts{
+		Context:      ctx,
+		Reader:       conn,
+		Writer:       os.Stdout,
+		MaxWriteSize: 1,
+		WriteSleep:   34 * time.Millisecond,
+	})
+	termToNet := readAndWrite(readWriteOpts{
+		Context:      ctx,
+		Reader:       os.Stdin,
+		Writer:       conn,
+		MaxWriteSize: 1,
+		WriteSleep:   34 * time.Millisecond,
+	})
 
+	var ret error
 	select {
-	case result = <-netToTerm:
-	case result = <-termToNet:
+	case ret = <-netToTerm:
+	case ret = <-termToNet:
 	}
 
-	if result.err != nil && result.err == io.EOF {
-		result.err = nil
+	if ret == io.EOF {
+		ret = nil
 	}
 
 	conn.Close()
 	cancel()
 	wg.Wait()
-	fmt.Println(result.err)
+	if ret != nil {
+		panic(ret)
+	}
 }
 
-type exportReadWrite struct {
-	written uint64
-	err     error
+type readWriteOpts struct {
+	Context      context.Context
+	Reader       io.Reader
+	Writer       io.Writer
+	MaxWriteSize int
+	WriteSleep   time.Duration
 }
 
-func readAndWrite(ctx context.Context, r io.Reader, w io.Writer) <-chan exportReadWrite {
+func readAndWrite(opts readWriteOpts) <-chan error {
 	buff := make([]byte, 1024)
-	c := make(chan exportReadWrite, 1)
+	c := make(chan error, 1)
 
 	go func() {
-		defer ctx.Value("sync").(*sync.WaitGroup).Done()
+		defer opts.Context.Value("sync").(*sync.WaitGroup).Done()
 
-		export := exportReadWrite{}
 		for {
 			select {
-			case <-ctx.Done():
-				c <- export
+			case <-opts.Context.Done():
+				c <- nil
 				return
 			default:
-				nr, err := r.Read(buff)
+				nr, err := opts.Reader.Read(buff)
 				if err != nil {
-					export.err = err
-					c <- export
+					c <- err
 					return
 				}
 				if nr > 0 {
-					wr, err := w.Write(buff[:nr])
-					if err != nil {
-						export.err = err
-						c <- export
-						return
-					}
-					if wr > 0 {
-						export.written += uint64(wr)
+					var end int
+					for start := 0; start < nr; start = end {
+						end = start + opts.MaxWriteSize
+						if end > nr {
+							end = nr
+						}
+						_, err := opts.Writer.Write(buff[start:end])
+						if err != nil {
+							c <- err
+							return
+						}
+						if end == nr {
+							break
+						}
+						time.Sleep(opts.WriteSleep)
 					}
 				}
 			}
