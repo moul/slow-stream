@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -68,35 +69,40 @@ func main() {
 		buffSize := c.Int("buff-size")
 		maxWriteInterval := time.Duration(c.Int("max-write-interval")) * time.Millisecond
 
+		waitGroup := sync.WaitGroup{}
+		ctx, cancel := context.WithCancel(context.Background())
+		ctx = context.WithValue(ctx, "sync", &waitGroup)
+
 		if len(c.Args()) == 0 {
 			logrus.Debugf("pipe mode (buf=%d, dur=%v)", buffSize, maxWriteInterval)
 
-			pipe := slowstream.SlowStream(slowstream.SlowStreamOpts{
+			waitGroup.Add(1)
+			if ret := <-slowstream.SlowStream(ctx, slowstream.SlowStreamOpts{
 				Reader:           os.Stdin,
 				Writer:           os.Stdout,
 				BuffSize:         buffSize,
 				MaxWriteInterval: maxWriteInterval,
-			})
-			var ret error
-			select {
-			case ret = <-pipe:
-			}
-			if ret != nil {
+			}); ret != nil && ret != io.EOF {
 				logrus.Error(ret)
 			}
-
+			cancel()
+			waitGroup.Wait()
 		} else {
-
 			logrus.Debugf("exec mode: %v (buf=%d, dur=%v)", c.Args(), buffSize, maxWriteInterval)
-			wg := sync.WaitGroup{}
-
-			wg.Add(2)
 
 			spawn := exec.Command(c.Args()[0], c.Args()[1:]...)
 
-			psOut, _ := spawn.StdoutPipe()
-			psIn, _ := spawn.StdinPipe()
+			psOut, err := spawn.StdoutPipe()
+			if err != nil {
+				logrus.Fatal(err)
+			}
 			defer psOut.Close()
+
+			psIn, err := spawn.StdinPipe()
+			if err != nil {
+				logrus.Error(err)
+				return // don't use Fatal to call defer functions
+			}
 			defer psIn.Close()
 
 			// ps to term
@@ -110,10 +116,12 @@ func main() {
 				opts.BuffSize = 1024
 				opts.MaxWriteInterval = 0
 			}
-			psToTerm := slowstream.SlowStream(opts)
+			waitGroup.Add(1)
+			psToTerm := slowstream.SlowStream(ctx, opts)
 
 			// term to ps
-			termToPs := slowstream.SlowStream(slowstream.SlowStreamOpts{
+			waitGroup.Add(1)
+			termToPs := slowstream.SlowStream(ctx, slowstream.SlowStreamOpts{
 				Reader:           os.Stdin,
 				Writer:           psIn,
 				BuffSize:         buffSize,
@@ -121,9 +129,13 @@ func main() {
 			})
 			spawn.Stderr = os.Stderr
 
-			spawn.Start()
+			if err := spawn.Start(); err != nil {
+				logrus.Error(err)
+				return // don't use Fatal to call defer functions
+			}
 
 			var ret error
+
 			select {
 			case ret = <-psToTerm:
 			case ret = <-termToPs:
@@ -133,11 +145,16 @@ func main() {
 				ret = nil
 			}
 
-			spawn.Wait()
+			if err := spawn.Wait(); err != nil {
+				logrus.Error(err)
+				return // don't use Fatal to call defer functions
+			}
+			cancel()
+			waitGroup.Wait()
 
-			wg.Wait()
 			if ret != nil {
-				panic(ret)
+				logrus.Error(ret)
+				return // don't use Fatal to call defer functions
 			}
 		}
 	}
