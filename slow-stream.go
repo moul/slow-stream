@@ -2,7 +2,10 @@ package slowstream
 
 import (
 	"io"
+	"sync"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 var VERSION = "1.1.0"
@@ -14,28 +17,52 @@ type SlowStreamOpts struct {
 	MaxWriteInterval time.Duration
 }
 
-func SlowStream(opts SlowStreamOpts) <-chan error {
-	buff := make([]byte, opts.BuffSize)
+func SlowStream(ctx context.Context, opts SlowStreamOpts) <-chan error {
 	c := make(chan error, 1)
 
 	go func() {
-		for {
-			nr, err := opts.Reader.Read(buff)
-			if err != nil {
-				c <- err
-				return
-			}
-			if nr == 0 {
-				continue
-			}
+		var running chan error
+		var fetch <-chan time.Time
+		buff := make([]byte, opts.BuffSize)
 
-			wr, err := opts.Writer.Write(buff[:nr])
-			if err != nil {
-				c <- err
-				return
+		running = nil
+		defer ctx.Value("sync").(*sync.WaitGroup).Done()
+		for {
+			if running == nil {
+				fetch = time.After(0 * time.Second)
 			}
-			if wr > 0 {
-				time.Sleep(opts.MaxWriteInterval)
+			select {
+			case <-ctx.Done():
+				return
+			case errRunning := <-running:
+				running = nil
+				if errRunning != nil {
+					c <- errRunning
+					return
+				}
+			case <-fetch:
+				running = make(chan error, 1)
+				go func() {
+					nr, err := opts.Reader.Read(buff)
+					if err != nil {
+						running <- err
+						return
+					}
+
+					if nr == 0 {
+						running <- nil
+						return
+					}
+					wr, err := opts.Writer.Write(buff[:nr])
+					if err != nil {
+						running <- err
+						return
+					}
+					if wr > 0 {
+						time.Sleep(opts.MaxWriteInterval)
+					}
+					running <- nil
+				}()
 			}
 		}
 	}()
