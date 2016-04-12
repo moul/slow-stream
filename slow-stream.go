@@ -8,7 +8,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-var VERSION = "1.2.0"
+var VERSION = "1.2.0+dev"
 
 type SlowStreamOpts struct {
 	Reader           io.Reader
