@@ -14,7 +14,7 @@ USAGE:
    slow-stream [global options] command [command options] [arguments...]
 
 VERSION:
-   1.1.0
+   1.2.0
 
 AUTHOR(S):
    Manfred Touron <https://github.com/moul/slow-stream>
@@ -35,18 +35,18 @@ GLOBAL OPTIONS:
 ## Schema
 
 ```
-          ┌───────┐             
-          │ Hello │             
-          └───────┘             
-              │                 
-            stdin               
-              │                 
-              ▼                 
-┌───────────────────────────┐   
-│ $ slow-stream -b1 -i 100  │   
-└───────────────────────────┘   
-              │                 
-            stdout              
+          ┌───────┐
+          │ Hello │
+          └───────┘
+              │
+            stdin
+              │
+              ▼
+┌───────────────────────────┐
+│ $ slow-stream -b1 -i 100  │
+└───────────────────────────┘
+              │
+            stdout
               │            ┌───┐
               ├────t=0────▶│ H │
               │            └───┘
