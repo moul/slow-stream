@@ -1,4 +1,7 @@
 # slow-stream
+
+[![GuardRails badge](https://badges.production.guardrails.io/moul/slow-stream.svg)](https://www.guardrails.io)
+
 :rabbit2: pipe to throttle streams (bin + go lib)
 
 ![Slow Stream Logo](https://raw.githubusercontent.com/moul/slow-stream/master/contrib/assets/slow-stream.png)
